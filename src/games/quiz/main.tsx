@@ -207,11 +207,11 @@ class Options extends Phaser.GameObjects.Group {
         .setFontSize(128)
         .setStroke('#ffffff', 16)
         .setOrigin(0.5, 0.5)
+      this.questionManager.setCorrectCount()
       setTimeout(() => {
         if (this.questionManager.isFinished()) {
           this.scene.scene.start('resultScene', { questionManager: this.questionManager })
         } else {
-          this.questionManager.setCorrectCount()
           this.questionManager.nextQuestion()
           this.scene.scene.restart({ questionManager: this.questionManager })
         }
