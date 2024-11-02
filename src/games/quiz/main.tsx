@@ -110,7 +110,8 @@ class GameScene extends Phaser.Scene {
 
 // 問題を管理するクラス
 class QuestionManager {
-  private questions: { question: string; options: string[]; answer: string }[] = []
+  questions: { question: string; options: string[]; answer: string }[] = []
+  correctCount: number = 0
   currentQuestionIndex: number = 0
   constructor(questions: { question: string; options: string[]; answer: string }[]) {
     this.questions = Phaser.Math.RND.shuffle(questions)
@@ -121,6 +122,15 @@ class QuestionManager {
   nextQuestion() {
     this.currentQuestionIndex++
   }
+  setCorrectCount() {
+    this.correctCount++
+  }
+  getCorrectCount() {
+    return this.correctCount
+  }
+  getQuestionsCount() {
+    return this.questions.length
+  }
   // 問題が最後まで行ったかどうか
   isFinished() {
     return this.currentQuestionIndex >= this.questions.length - 1
@@ -128,6 +138,7 @@ class QuestionManager {
   // 問題を最初に戻す
   reset() {
     this.currentQuestionIndex = 0
+    this.correctCount = 0
   }
 }
 
@@ -190,6 +201,7 @@ class Options extends Phaser.GameObjects.Group {
         .rectangle(0, 0, GAME_CONFIG.DEFAULT_WIDTH, GAME_CONFIG.DEFAULT_HEIGHT, 0x000000)
         .setAlpha(0.5)
         .setOrigin(0, 0)
+        .setInteractive()
       this.scene.add
         .text(240, 300, '正解', GAME_CONFIG.DEFAULT_FONT)
         .setFontSize(128)
@@ -197,15 +209,33 @@ class Options extends Phaser.GameObjects.Group {
         .setOrigin(0.5, 0.5)
       setTimeout(() => {
         if (this.questionManager.isFinished()) {
-          this.questionManager.reset()
-          this.scene.scene.start('titleScene')
+          this.scene.scene.start('resultScene', { questionManager: this.questionManager })
         } else {
+          this.questionManager.setCorrectCount()
           this.questionManager.nextQuestion()
           this.scene.scene.restart({ questionManager: this.questionManager })
         }
       }, 1000)
     } else {
-      alert('不正解です。')
+      // 不正解とTextBoxで一定時間表示
+      this.scene.add
+        .rectangle(0, 0, GAME_CONFIG.DEFAULT_WIDTH, GAME_CONFIG.DEFAULT_HEIGHT, 0x000000)
+        .setAlpha(0.5)
+        .setOrigin(0, 0)
+        .setInteractive()
+      this.scene.add
+        .text(240, 300, '不正解', GAME_CONFIG.DEFAULT_FONT)
+        .setFontSize(128)
+        .setStroke('#ffffff', 16)
+        .setOrigin(0.5, 0.5)
+      setTimeout(() => {
+        if (this.questionManager.isFinished()) {
+          this.scene.scene.start('resultScene', { questionManager: this.questionManager })
+        } else {
+          this.questionManager.nextQuestion()
+          this.scene.scene.restart({ questionManager: this.questionManager })
+        }
+      }, 1000)
     }
   }
 }
@@ -227,6 +257,57 @@ class TextBox extends Phaser.GameObjects.Rectangle {
   }
 }
 
+class ResultScene extends Phaser.Scene {
+  private questionManager: QuestionManager
+  constructor() {
+    super('resultScene')
+    this.questionManager = new QuestionManager(questions)
+  }
+  init(data: { questionManager: QuestionManager }) {
+    this.questionManager = data.questionManager
+  }
+
+  preload() {}
+
+  create() {
+    this.cameras.main.setBackgroundColor('#91fff0')
+    const correctCount = this.questionManager.getCorrectCount()
+    const questionsCount = this.questionManager.getQuestionsCount()
+    this.add
+      .text(
+        GAME_CONFIG.DEFAULT_WIDTH / 2,
+        GAME_CONFIG.DEFAULT_HEIGHT / 2 - 200,
+        `正解数: ${correctCount}/${questionsCount}`,
+        GAME_CONFIG.DEFAULT_FONT,
+      )
+      .setFontSize(64)
+      .setOrigin(0.5, 0.5)
+    this.add
+      .text(
+        GAME_CONFIG.DEFAULT_WIDTH / 2,
+        GAME_CONFIG.DEFAULT_HEIGHT / 2 - 100,
+        'お疲れ様でした',
+        GAME_CONFIG.DEFAULT_FONT,
+      )
+      .setFontSize(64)
+      .setOrigin(0.5, 0.5)
+    this.add
+      .text(
+        GAME_CONFIG.DEFAULT_WIDTH / 2,
+        GAME_CONFIG.DEFAULT_HEIGHT / 2 + 100,
+        'タイトルに戻る',
+        GAME_CONFIG.DEFAULT_FONT,
+      )
+      .setFontSize(32)
+      .setOrigin(0.5, 0.5)
+      .setInteractive()
+      .on('pointerup', () => {
+        this.questionManager.reset()
+        this.scene.start('titleScene')
+      })
+  }
+}
+
 const Game = () => {
   const parentEl = useRef<HTMLDivElement>(null)
   const [, setGame] = useState<GameType | null>(null)
@@ -243,7 +324,7 @@ const Game = () => {
         fullscreenTarget: parentEl.current,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
-      scene: [TitleScene, GameScene],
+      scene: [TitleScene, GameScene, ResultScene],
     })
     setGame(phaserGame)
 
